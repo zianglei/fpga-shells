@@ -222,7 +222,7 @@ class EthernetArtyOverlay(val shell: Arty100TShellBasicOverlays, val name: Strin
   val ethernetSource = BundleBridgeSource(() => ethernet.module.io.cloneType)
   val ethernetSink = shell {ethernetSource.makeSink() }
 
-  params.intNode := ethernet.intnode
+  params.intNode := ethernet.crossIntOut(ethernet.intnode)
 
   def ioFactory = new XilinxArtyEthernetPads
   val designOutput = ethernet.node
