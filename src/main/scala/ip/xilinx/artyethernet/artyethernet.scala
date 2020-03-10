@@ -74,7 +74,7 @@ class artyethernet()(implicit val p: Parameters) extends BlackBox
 		| CONFIG.C_S_AXI_PROTOCOL {AXI4LITE}				\\
 		| CONFIG.C_INCLUDE_MDIO {1}									\\
 		| CONFIG.C_INCLUDE_INTERNAL_LOOPBACK {0}		\\
-		| CONFIG.C_INCLUDE_GLOBAL_BUFFERS {1}				\\
+		| CONFIG.C_INCLUDE_GLOBAL_BUFFERS {0}				\\
 		| CONFIG.C_DUPLEX {1}												\\
 		| CONFIG.C_TX_PING_PONG {1}									\\
 		| CONFIG.C_RX_PING_PONG {1}									\\

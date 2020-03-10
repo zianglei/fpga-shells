@@ -274,6 +274,12 @@ class EthernetArtyOverlay(val shell: Arty100TShellBasicOverlays, val name: Strin
       ("J13", IOPin(io.phy_tx_data, 2)),
       ("H17", IOPin(io.phy_tx_data, 3))
     )
+
+    shell.sdc.addClock("eth_rx_clk_pin", IOPin(io.phy_rx_clk), 25)
+    shell.sdc.addClock("eth_tx_clk_pin", IOPin(io.phy_tx_clk), 25)
+    shell.sdc.addGroup(clocks = Seq("eth_rx_clk_pin"))
+    shell.sdc.addGroup(clocks = Seq("eth_tc_clk_pin"))
+
     packagePinsWithPackageIOs foreach { case (pin, io) => {
       shell.xdc.addPackagePin(io, pin)
       shell.xdc.addIOStandard(io, "LVCMOS33")
