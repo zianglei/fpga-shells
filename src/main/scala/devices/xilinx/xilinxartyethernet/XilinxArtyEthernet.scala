@@ -63,6 +63,13 @@ class XilinxArtyEthernet(c: XilinxArtyEthernetParams)(implicit p: Parameters, va
 
     // connect up IOs
     // since we don't have a bajillion, we'll do it by hand
+    
+    // connect mdio
+    blackbox.io.phy_mdio_i := io.phy_mdio_i
+    io.phy_mdio_o := blackbox.io.phy_mdio_o
+    io.phy_mdio_t := blackbox.io.phy_mdio_t
+    io.phy_mdc := blackbox.io.phy_mdc
+
     io.phy_tx_data := blackbox.io.phy_tx_data
     io.phy_tx_en := blackbox.io.phy_tx_en
     blackbox.io.phy_rx_data := io.phy_rx_data
