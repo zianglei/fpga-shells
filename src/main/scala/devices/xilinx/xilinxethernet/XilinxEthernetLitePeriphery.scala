@@ -19,10 +19,7 @@ trait HasPeripheryXilinxEthernetLite { this: BaseSubsystem =>
 
 trait HasPeripheryXilinxEthernetLiteModuleImp extends LazyModuleImp {
   val outer: HasPeripheryXilinxEthernetLite
-  val phy = IO(new Bundle with PhyPort with MdioPort {
-    val s_axi_aclk = Clock(INPUT)
-  })
+  val phy = IO(new Bundle with PhyPort with MdioPort )
 
-  outer.xilinxethernetlite.module.io.port.s_axi_aclk := phy.s_axi_aclk;
   phy <> outer.xilinxethernetlite.module.io.port
 }

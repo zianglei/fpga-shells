@@ -124,7 +124,7 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   val clock_32MHz    = Wire(Clock())
 //  val clock_50MHz    = Wire(Clock()) // Main clock
   val clock_25MHz    = Wire(Clock()) // Used for ethernet ref clk
-  val clock_100MHz    = Wire(Clock()) // Used for ethernet main clk
+  val clock_65MHz    = Wire(Clock()) // Used for ethernet main clk
   
   //val clock_65MHz    = Wire(Clock())
 
@@ -155,10 +155,12 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   ip_mmcm.io.clk_in1 := CLK100MHZ
   clock_32MHz        := ip_mmcm.io.clk_out1  // 50 MHz
   clock_25MHz        := ip_mmcm.io.clk_out2  // 25 Mhz
-  clock_100MHz       := ip_mmcm.io.clk_out3  // 100 Mhz, used for ethernet
+  clock_65MHz        := ip_mmcm.io.clk_out3  // 100 Mhz, used for ethernet
   clock_8MHz         := ip_mmcm.io.clk_out4  // 8Mhz for AON
   ip_mmcm.io.resetn  := ck_rst
   mmcm_locked        := ip_mmcm.io.locked
+
+  IOBUF(eth_ref_clk, clock_25MHz.asUInt.toBool)
 
   //-----------------------------------------------------------------------
   // System Reset
@@ -167,7 +169,7 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
 
   val ip_reset_sys = Module(new reset_sys())
 
-  ip_reset_sys.io.slowest_sync_clk := clock_25MHz
+  ip_reset_sys.io.slowest_sync_clk := clock_8MHz
   ip_reset_sys.io.ext_reset_in     := ck_rst & SRST_n
   ip_reset_sys.io.aux_reset_in     := true.B
   ip_reset_sys.io.mb_debug_sys_rst := dut_ndreset

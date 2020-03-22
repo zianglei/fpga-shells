@@ -21,7 +21,7 @@ class XilinxEthernetLite(c: ArtyEthernetParams)(implicit p: Parameters, val cros
       := AXI4Buffer()
       := AXI4UserYanker()
       := AXI4Deinterleaver(p(CacheBlockBytes))
-      := AXI4IdIndexer(idBits=4)
+      := AXI4IdIndexer(idBits=1)
       := TLToAXI4(adapterName = Some("ethernetlite")))
 
   val intnode: IntOutwardNode = ethernetlite.intnode
@@ -30,11 +30,10 @@ class XilinxEthernetLite(c: ArtyEthernetParams)(implicit p: Parameters, val cros
     val io = IO(new Bundle {
       val port = new Bundle with PhyPort
                             with MdioPort {
-          val s_axi_aclk = Clock(INPUT)
       }
     })
 
-    ethernetlite.module.io.clockreset.s_axi_aclk := io.port.s_axi_aclk
+    ethernetlite.module.io.clockreset.s_axi_aclk := clock
     ethernetlite.module.io.clockreset.s_axi_aresetn := ~reset
 
     io.port <> ethernetlite.module.io.port

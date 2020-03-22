@@ -97,7 +97,7 @@ class axiethernetlite() extends BlackBox {
   ElaborationArtefacts.add(modulename++".vivado.tcl",
    s"""create_ip -vendor xilinx.com -library ip -name axi_ethernetlite -module_name ${modulename} -dir $$ipdir -force
    	|set_property -dict [list   \\
-		| CONFIG.AXI_ACLK_FREQ_MHZ {100}		  	  \\
+		| CONFIG.AXI_ACLK_FREQ_MHZ {65}		  	  \\
 		| CONFIG.C_S_AXI_ID_WIDTH	{1}								\\
 		| CONFIG.C_S_AXI_PROTOCOL {AXI4}				\\
 		| CONFIG.C_INCLUDE_MDIO {1}									\\
