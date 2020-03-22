@@ -2,8 +2,8 @@
 package sifive.fpgashells.shell.xilinx.artyshell
 
 import Chisel._
-import chisel3.core.{Input, Output, attach}
-import chisel3.experimental.{RawModule, Analog, withClockAndReset}
+import chisel3.{Input, Output}
+import chisel3.experimental.{attach, Analog, RawModule, withClockAndReset}
 
 import freechips.rocketchip.config._
 import freechips.rocketchip.devices.debug._
@@ -70,6 +70,21 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   val uart_rxd_out = IO(Analog(1.W))
   val uart_txd_in  = IO(Analog(1.W))
 
+  // Ethernet
+  val eth_col      = IO(Analog(1.W))
+  val eth_crs      = IO(Analog(1.W))
+  val eth_mdc      = IO(Analog(1.W))
+  val eth_mdio     = IO(Analog(1.W))
+  val eth_ref_clk  = IO(Analog(1.W))
+  val eth_rstn     = IO(Analog(1.W))
+  val eth_rx_clk   = IO(Analog(1.W))
+  val eth_rx_dv    = IO(Analog(1.W))
+  val eth_rxd      = IO(Vec(4, Analog(1.W)))
+  val eth_rxerr    = IO(Analog(1.W))
+  val eth_tx_clk   = IO(Analog(1.W))
+  val eth_tx_en    = IO(Analog(1.W))
+  val eth_txd      = IO(Vec(4, Analog(1.W)))
+
   // JA (Used for more generic GPIOs)
   val ja_0         = IO(Analog(1.W))
   val ja_1         = IO(Analog(1.W))
@@ -79,6 +94,9 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   val ja_5         = IO(Analog(1.W))
   val ja_6         = IO(Analog(1.W))
   val ja_7         = IO(Analog(1.W))
+
+  // JC (used for additional debug/trace connection)
+  val jc           = IO(Vec(8, Analog(1.W)))
 
   // JD (used for JTAG connection)
   val jd_0         = IO(Analog(1.W))  // TDO
@@ -104,7 +122,11 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   // Note: these frequencies are approximate.
   val clock_8MHz     = Wire(Clock())
   val clock_32MHz    = Wire(Clock())
-  val clock_65MHz    = Wire(Clock())
+//  val clock_50MHz    = Wire(Clock()) // Main clock
+  val clock_25MHz    = Wire(Clock()) // Used for ethernet ref clk
+  val clock_100MHz    = Wire(Clock()) // Used for ethernet main clk
+  
+  //val clock_65MHz    = Wire(Clock())
 
   val mmcm_locked    = Wire(Bool())
 
@@ -131,9 +153,10 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   val ip_mmcm = Module(new mmcm())
 
   ip_mmcm.io.clk_in1 := CLK100MHZ
-  clock_8MHz         := ip_mmcm.io.clk_out1  // 8.388 MHz = 32.768 kHz * 256
-  clock_65MHz        := ip_mmcm.io.clk_out2  // 65 Mhz
-  clock_32MHz        := ip_mmcm.io.clk_out3  // 65/2 Mhz
+  clock_32MHz        := ip_mmcm.io.clk_out1  // 50 MHz
+  clock_25MHz        := ip_mmcm.io.clk_out2  // 25 Mhz
+  clock_100MHz       := ip_mmcm.io.clk_out3  // 100 Mhz, used for ethernet
+  clock_8MHz         := ip_mmcm.io.clk_out4  // 8Mhz for AON
   ip_mmcm.io.resetn  := ck_rst
   mmcm_locked        := ip_mmcm.io.locked
 
@@ -144,7 +167,7 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
 
   val ip_reset_sys = Module(new reset_sys())
 
-  ip_reset_sys.io.slowest_sync_clk := clock_8MHz
+  ip_reset_sys.io.slowest_sync_clk := clock_25MHz
   ip_reset_sys.io.ext_reset_in     := ck_rst & SRST_n
   ip_reset_sys.io.aux_reset_in     := true.B
   ip_reset_sys.io.mb_debug_sys_rst := dut_ndreset
@@ -160,26 +183,19 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   // SPI Flash
   //-----------------------------------------------------------------------
 
-  def connectSPIFlash(dut: HasPeripherySPIFlashModuleImp): Unit = {
-    val qspiParams = p(PeripherySPIFlashKey)
-    if (!qspiParams.isEmpty) {
-      val qspi_params = qspiParams(0)
-      val qspi_pins = Wire(new SPIPins(() => {new BasePin()}, qspi_params))
+  def connectSPIFlash(dut: HasPeripherySPIFlashModuleImp): Unit = dut.qspi.headOption.foreach {
+    connectSPIFlash(_, dut.clock, dut.reset)
+  }
 
-      SPIPinsFromPort(qspi_pins,
-        dut.qspi(0),
-        dut.clock,
-        dut.reset,
-        syncStages = qspi_params.defaultSampleDel
-      )
+  def connectSPIFlash(qspi: SPIPortIO, clock: Clock, reset: Bool): Unit = {
+    val qspi_pins = Wire(new SPIPins(() => {new BasePin()}, qspi.c))
 
-      IOBUF(qspi_sck, dut.qspi(0).sck)
-      IOBUF(qspi_cs,  dut.qspi(0).cs(0))
+    SPIPinsFromPort(qspi_pins, qspi, clock, reset, syncStages = qspi.c.defaultSampleDel)
 
-      (qspi_dq zip qspi_pins.dq).foreach {
-        case(a, b) => IOBUF(a,b)
-      }
-    }
+    IOBUF(qspi_sck, qspi.sck)
+    IOBUF(qspi_cs,  qspi.cs(0))
+
+    (qspi_dq zip qspi_pins.dq).foreach { case(a, b) => IOBUF(a, b) }
   }
 
   //---------------------------------------------------------------------
@@ -236,12 +252,11 @@ abstract class ArtyShell(implicit val p: Parameters) extends RawModule {
   // UART
   //---------------------------------------------------------------------
 
-  def connectUART(dut: HasPeripheryUARTModuleImp): Unit = {
-    val uartParams = p(PeripheryUARTKey)
-    if (!uartParams.isEmpty) {
-      IOBUF(uart_rxd_out, dut.uart(0).txd)
-      dut.uart(0).rxd := IOBUF(uart_txd_in)
-    }
+  def connectUART(dut: HasPeripheryUARTModuleImp): Unit = dut.uart.headOption.foreach(connectUART)
+
+  def connectUART(uart: UARTPortIO): Unit = {
+    IOBUF(uart_rxd_out, uart.txd)
+    uart.rxd := IOBUF(uart_txd_in)
   }
 
 }
